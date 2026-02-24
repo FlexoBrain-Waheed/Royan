@@ -16,7 +16,7 @@ tab_materials, tab_printing, tab_lamination, tab_machines, tab_finance = st.tabs
 ])
 
 # ==========================================
-# TAB 1: المواد الخام والتسعير
+# TAB 1: المواد الخام والتسعير (العقل المدبر)
 # ==========================================
 with tab_materials:
     st.header("إعدادات المواد الخام (Raw Materials Setup)")
@@ -45,6 +45,15 @@ with tab_materials:
         pe_price = st.number_input("Price (SAR/Ton) - PE", value=5000)
         pe_density = st.number_input("Density (g/cm3) - PE", value=0.92)
 
+    # 🌟 إنشاء القاموس المركزي للمواد (يحتوي الكثافة والسعر معاً)
+    materials_db = {
+        "Transparent BOPP": {"density": bopp_t_density, "price": bopp_t_price},
+        "White BOPP": {"density": bopp_w_density, "price": bopp_w_price},
+        "Metallized BOPP": {"density": bopp_m_density, "price": bopp_m_price},
+        "Polyester PET": {"density": pet_density, "price": pet_price},
+        "PE (Polyethylene)": {"density": pe_density, "price": pe_price}
+    }
+
     st.markdown("---")
     st.subheader("إعدادات الأحبار والمذيبات (Inks & Solvents)")
     col_m1, col_m2, col_m3 = st.columns(3)
@@ -53,7 +62,7 @@ with tab_materials:
     solvent_ratio = col_m3.number_input("نسبة السولفنت للحبر (مثلاً 1.2)", value=1.2)
 
 # ==========================================
-# TAB 2: قسم الطباعة والتغييرات
+# TAB 2: قسم الطباعة المترابط
 # ==========================================
 with tab_printing:
     st.header("قسم الطباعة (Printing Department)")
@@ -65,8 +74,14 @@ with tab_printing:
         ink_coverage = st.number_input("تغطية الحبر (جرام/متر مربع - Ink GSM)", value=5.0)
         
         st.markdown("**مواصفات فيلم الطباعة (الطبقة الأولى - المطبوعة)**")
+        # 🌟 الترابط الذكي: سحب المادة من القسم الأول
+        base_material_name = st.selectbox("نوع مادة الطباعة", list(materials_db.keys()))
         base_thickness = st.number_input("سماكة فيلم الطباعة (ميكرون)", value=20)
-        base_density = st.number_input("كثافة فيلم الطباعة", value=0.91)
+        
+        # استخراج الكثافة والسعر تلقائياً
+        base_density = materials_db[base_material_name]["density"]
+        base_price = materials_db[base_material_name]["price"]
+        st.caption(f"تم الربط بنجاح 🔗 | الكثافة: **{base_density}** | السعر: **{base_price:,.0f} ريال/طن**")
         
     with col_p2:
         st.warning("⏱️ تأثير تغييرات الأعمال (Job Changeovers)")
@@ -74,20 +89,19 @@ with tab_printing:
         changeover_time = 120 # دقيقة لكل تغيير
         total_lost_time = jobs_per_month * changeover_time
         
-        # حساب الوقت الفعلي للطباعة
-        printing_available_mins = 2 * 12 * 26 * 60 * 0.85 # 85% كفاءة
+        printing_available_mins = 2 * 12 * 26 * 60 * 0.85 
         actual_printing_mins = printing_available_mins - total_lost_time
         
         st.write(f"إجمالي الدقائق المتاحة شهرياً: **{printing_available_mins:,.0f} دقيقة**")
         st.write(f"الوقت الضائع في التجهيز: **{total_lost_time:,.0f} دقيقة**")
         st.success(f"دقائق التشغيل الفعلي الصافي: **{actual_printing_mins:,.0f} دقيقة**")
 
-    # حسابات المساحة والأطوال للطباعة
+    # الحسابات
     web_width_m = web_width_mm / 1000.0
     linear_meters_per_month = machine_speed * actual_printing_mins
     sq_meters_per_month = linear_meters_per_month * web_width_m
 
-    # مخرجات الطباعة
+    # مخرجات الطباعة والتكاليف الدقيقة
     st.markdown("---")
     st.subheader("📊 مخرجات قسم الطباعة (Printing Outputs)")
     
@@ -97,20 +111,22 @@ with tab_printing:
     
     ink_kg_per_month = (sq_meters_per_month * ink_coverage) / 1000.0
     solvent_kg_per_month = ink_kg_per_month * solvent_ratio
-    
     ink_cost_monthly = ink_kg_per_month * ink_price
     solvent_cost_monthly = solvent_kg_per_month * solvent_price
     
+    # 🌟 حساب التكلفة الدقيقة لفيلم الطباعة
     base_film_gsm = base_thickness * base_density
+    base_film_tons_per_month = (sq_meters_per_month * base_film_gsm) / 1000000.0
+    base_film_cost_monthly = base_film_tons_per_month * base_price
+    
     printed_roll_gsm = base_film_gsm + ink_coverage
     printing_production_tons = (sq_meters_per_month * printed_roll_gsm) / 1000000.0
 
-    col_res1, col_res2, col_res3, col_res4, col_res5 = st.columns(5)
-    col_res1.metric("كمية الحبر", f"{ink_kg_per_month:,.0f} كجم")
-    col_res2.metric("كمية السولفنت", f"{solvent_kg_per_month:,.0f} كجم")
-    col_res3.metric("تكلفة الحبر", f"{ink_cost_monthly:,.0f} ريال")
-    col_res4.metric("تكلفة السولفنت", f"{solvent_cost_monthly:,.0f} ريال")
-    col_res5.metric("الوزن الإجمالي المطبوع", f"{printing_production_tons:,.1f} طن")
+    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+    col_res1.metric("كمية الحبر والسولفنت", f"{(ink_kg_per_month + solvent_kg_per_month):,.0f} كجم")
+    col_res2.metric("تكلفة الحبر والسولفنت", f"{(ink_cost_monthly + solvent_cost_monthly):,.0f} ريال")
+    col_res3.metric("وزن المادة الخام (للطباعة)", f"{base_film_tons_per_month:,.1f} طن")
+    col_res4.metric("تكلفة المادة الخام (للطباعة)", f"{base_film_cost_monthly:,.0f} ريال")
 
 # ==========================================
 # TAB 3: قسم اللامنيشن والهيكلة الديناميكية
@@ -121,7 +137,6 @@ with tab_lamination:
     col_l1, col_l2 = st.columns([1, 2])
     
     with col_l1:
-        # 🌟 الإضافة الجديدة: خيار 1 يعني "بدون لامنيشن"
         num_layers = st.selectbox("عدد طبقات المنتج النهائي (Layers)", [1, 2, 3, 4], format_func=lambda x: "1 (طباعة فقط - بدون لامنيشن)" if x == 1 else str(x))
         passes = max(0, num_layers - 1)
         
@@ -138,28 +153,32 @@ with tab_lamination:
         st.subheader("بناء الهيكل الهندسي (Product Structure)")
         layers_gsm_list = []
         
-        st.markdown(f"**الطبقة 1 (الرول المطبوع):** سماكة {base_thickness} ميكرون + حبر = **{printed_roll_gsm:.2f} g/m2**")
-        layers_gsm_list.append(printed_roll_gsm)
+        # 🌟 تكلفة المواد الإجمالية تبدأ من تكلفة طبقة الطباعة
+        total_raw_materials_cost = base_film_cost_monthly 
         
-        materials_dict = {
-            "Transparent BOPP": bopp_t_density,
-            "White BOPP": bopp_w_density,
-            "Metallized BOPP": bopp_m_density,
-            "Polyester PET": pet_density,
-            "PE (Polyethylene)": pe_density
-        }
+        st.markdown(f"**الطبقة 1 (الرول المطبوع):** {base_material_name} ({base_thickness}μ) = **{printed_roll_gsm:.2f} g/m2**")
+        layers_gsm_list.append(printed_roll_gsm)
         
         if num_layers > 1:
             for i in range(2, num_layers + 1):
                 st.markdown(f"**الطبقة {i}:**")
                 col_mat, col_thk = st.columns(2)
-                layer_mat = col_mat.selectbox(f"نوع المادة", list(materials_dict.keys()), key=f"mat_{i}")
+                # 🌟 الترابط الذكي مع القاموس المركزي للامنيشن أيضاً
+                layer_mat_name = col_mat.selectbox(f"نوع المادة", list(materials_db.keys()), key=f"mat_{i}")
                 layer_thk = col_thk.number_input(f"السماكة (ميكرون)", value=20, key=f"thk_{i}")
                 
-                layer_density = materials_dict[layer_mat]
+                layer_density = materials_db[layer_mat_name]["density"]
+                layer_price = materials_db[layer_mat_name]["price"]
+                
                 layer_gsm = layer_thk * layer_density
                 layers_gsm_list.append(layer_gsm)
-                st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
+                
+                # حساب تكلفة هذه الطبقة بدقة
+                layer_tons = (sq_meters_per_month * layer_gsm) / 1000000.0
+                layer_cost = layer_tons * layer_price
+                total_raw_materials_cost += layer_cost
+                
+                st.caption(f"وزن {layer_mat_name}: {layer_gsm:.2f} g/m2 | تكلفة الطبقة: {layer_cost:,.0f} ريال")
 
     st.markdown("---")
     st.subheader("⚙️ طاقة ماكينة اللامنيشن والتوافق مع الطباعة (Machine Utilization)")
@@ -195,7 +214,7 @@ with tab_lamination:
     st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Final Outputs)")
     
     col_out1, col_out2, col_out3 = st.columns(3)
-    col_out1.metric("الوزن الصافي للمواد (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
+    col_out1.metric("إجمالي تكلفة المواد الخام المجمعة", f"{total_raw_materials_cost:,.0f} ريال")
     col_out2.metric("كمية الغراء المستهلكة", f"{adhesive_consumed_kg:,.0f} كجم")
     col_out3.metric("الوزن النهائي للبيع", f"{final_production_tons:,.1f} طن")
 
@@ -230,15 +249,8 @@ with tab_machines:
     total_monthly_depreciation = edited_machines["Monthly_Depreciation"].sum()
     total_monthly_power = edited_machines["Monthly_Power_Cost"].sum()
 
-    st.markdown("---")
-    st.subheader("مخرجات قسم الأصول والتكاليف الثابتة (Overheads)")
-    col_mac1, col_mac2, col_mac3 = st.columns(3)
-    col_mac1.metric("إجمالي الأصول (CAPEX)", f"{total_capex:,.0f} ريال")
-    col_mac2.metric("إجمالي الإهلاك الشهري", f"{total_monthly_depreciation:,.0f} ريال")
-    col_mac3.metric("فاتورة الكهرباء الشهرية", f"{total_monthly_power:,.0f} ريال")
-
 # ==========================================
-# TAB 5: الخلاصة المالية 
+# TAB 5: الخلاصة المالية (دقيقة 100%)
 # ==========================================
 with tab_finance:
     st.header("الخلاصة والنتائج (Financial Dashboard)")
@@ -246,9 +258,9 @@ with tab_finance:
     monthly_salaries = st.number_input("إجمالي الرواتب الشهرية والمصاريف الإدارية (SAR)", value=200000)
     
     adhesive_cost_monthly = adhesive_consumed_kg * 12 
-    raw_material_avg_cost = final_production_tons * 6000 
     
-    total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + total_monthly_power + total_monthly_depreciation + monthly_salaries
+    # 🌟 التكلفة الإجمالية الآن أصبحت دقيقة وتعتمد على خياراتك للمواد في كل طبقة!
+    total_monthly_cost = total_raw_materials_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + total_monthly_power + total_monthly_depreciation + monthly_salaries
     
     monthly_revenue = final_production_tons * selling_price
     monthly_profit = monthly_revenue - total_monthly_cost
@@ -265,8 +277,8 @@ with tab_finance:
 
     st.markdown("---")
     chart_data = {
-        "البند": ["تكلفة المواد الخام", "الحبر والسولفنت", "غراء اللامنيشن", "الكهرباء", "الإهلاك الشهري للمعدات", "الرواتب والمصاريف"],
-        "التكلفة": [raw_material_avg_cost, ink_cost_monthly + solvent_cost_monthly, adhesive_cost_monthly, total_monthly_power, total_monthly_depreciation, monthly_salaries]
+        "البند": ["تكلفة المواد الخام (دقيقة)", "الحبر والسولفنت", "غراء اللامنيشن", "الكهرباء", "الإهلاك للمعدات", "الرواتب والمصاريف"],
+        "التكلفة": [total_raw_materials_cost, ink_cost_monthly + solvent_cost_monthly, adhesive_cost_monthly, total_monthly_power, total_monthly_depreciation, monthly_salaries]
     }
     df_chart = pd.DataFrame(chart_data)
     fig = px.pie(df_chart, values='التكلفة', names='البند', hole=0.4, title="التحليل الدقيق للتكاليف التشغيلية (OPEX + Overheads)")
