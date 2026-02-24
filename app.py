@@ -63,7 +63,7 @@ with tab_printing:
         web_width_mm = st.slider("عرض رول الطباعة (ملم)", 400, 1300, 1000)
         ink_coverage = st.number_input("تغطية الحبر (جرام/متر مربع - Ink GSM)", value=5.0)
         
-        st.markdown("**مواصفات فيلم الطباعة (الطبقة المطبوعة فقط)**")
+        st.markdown("**مواصفات فيلم الطباعة (الطبقة الأولى - المطبوعة)**")
         base_thickness = st.number_input("سماكة فيلم الطباعة (ميكرون)", value=20)
         base_density = st.number_input("كثافة فيلم الطباعة", value=0.91)
         
@@ -74,19 +74,19 @@ with tab_printing:
         total_lost_time = jobs_per_month * changeover_time
         
         # حساب الوقت الفعلي
-        total_available_mins = 2 * 12 * 26 * 60 * 0.85 # (وردتين * 12 ساعة * 26 يوم * 60 دقيقة * 85% كفاءة)
+        total_available_mins = 2 * 12 * 26 * 60 * 0.85 # 85% كفاءة
         actual_printing_mins = total_available_mins - total_lost_time
         
         st.write(f"إجمالي الدقائق المتاحة شهرياً: **{total_available_mins:,.0f} دقيقة**")
         st.write(f"الوقت الضائع في التجهيز: **{total_lost_time:,.0f} دقيقة**")
         st.success(f"دقائق التشغيل الفعلي الصافي: **{actual_printing_mins:,.0f} دقيقة**")
 
-    # حسابات الإنتاج الطولي والمساحي
+    # حسابات المساحة
     web_width_m = web_width_mm / 1000.0
     linear_meters_per_month = machine_speed * actual_printing_mins
     sq_meters_per_month = linear_meters_per_month * web_width_m
 
-    # --- مخرجات قسم الطباعة (حسب طلبك) ---
+    # مخرجات الطباعة
     st.markdown("---")
     st.subheader("📊 مخرجات قسم الطباعة (Printing Outputs)")
     
@@ -96,45 +96,79 @@ with tab_printing:
     ink_cost_monthly = ink_kg_per_month * ink_price
     solvent_cost_monthly = solvent_kg_per_month * solvent_price
     
-    # حساب وزن الرول المطبوع فقط (الفيلم الأساسي + الحبر)
     base_film_gsm = base_thickness * base_density
     printed_roll_gsm = base_film_gsm + ink_coverage
     printing_production_tons = (sq_meters_per_month * printed_roll_gsm) / 1000000.0
 
     col_res1, col_res2, col_res3, col_res4, col_res5 = st.columns(5)
-    col_res1.metric("كمية الحبر المطلوبة", f"{ink_kg_per_month:,.0f} كجم")
+    col_res1.metric("كمية الحبر", f"{ink_kg_per_month:,.0f} كجم")
     col_res2.metric("كمية السولفنت", f"{solvent_kg_per_month:,.0f} كجم")
-    col_res3.metric("قيمة الحبر", f"{ink_cost_monthly:,.0f} ريال")
-    col_res4.metric("قيمة السولفنت", f"{solvent_cost_monthly:,.0f} ريال")
-    col_res5.metric("الوزن الإجمالي للطباعة", f"{printing_production_tons:,.1f} طن")
+    col_res3.metric("تكلفة الحبر", f"{ink_cost_monthly:,.0f} ريال")
+    col_res4.metric("تكلفة السولفنت", f"{solvent_cost_monthly:,.0f} ريال")
+    col_res5.metric("الوزن الإجمالي المطبوع", f"{printing_production_tons:,.1f} طن")
 
 # ==========================================
-# TAB 3: قسم اللامنيشن والهيكلة
+# TAB 3: قسم اللامنيشن والهيكلة الديناميكية
 # ==========================================
 with tab_lamination:
-    st.header("قسم اللامنيشن وبناء الطبقات (Lamination & Structure)")
-    col_l1, col_l2 = st.columns(2)
+    st.header("قسم اللامنيشن وبناء الطبقات (Structure & Lamination)")
+    
+    col_l1, col_l2 = st.columns([1, 2])
     
     with col_l1:
         num_layers = st.selectbox("عدد طبقات المنتج النهائي (Layers)", [2, 3, 4])
-        passes = num_layers - 1 # عدد التمريرات في الماكينة
-        adhesive_gsm = st.number_input("وزن غراء اللامنيشن للمتر المربع (Adhesive GSM) للتمريرة الواحدة", value=1.8)
-        
+        passes = num_layers - 1
+        adhesive_gsm = st.number_input("وزن غراء اللامنيشن (g/m2) للتمريرة", value=1.8)
         total_adhesive_gsm = adhesive_gsm * passes
-        st.info(f"🔄 المادة ستدخل ماكينة اللامنيشن **{passes} مرات**. إجمالي وزن الغراء المضاف للمنتج: **{total_adhesive_gsm} g/m2**")
+        st.info(f"إجمالي الغراء للمنتج: **{total_adhesive_gsm} g/m2** (عدد التمريرات: {passes})")
 
     with col_l2:
-        st.write("متوسط سماكة المادة الخام الإجمالية (بما فيها فيلم الطباعة والطبقات الأخرى)")
-        avg_thickness = st.slider("السماكة الإجمالية للفيلم (ميكرون)", 20, 200, 70)
-        avg_density = st.slider("متوسط الكثافة للفيلم المدمج", 0.90, 1.40, 0.95)
+        st.subheader("بناء الهيكل الهندسي (Product Structure)")
+        layers_gsm_list = []
         
-        film_gsm = avg_thickness * avg_density
-        final_gsm = film_gsm + ink_coverage + total_adhesive_gsm
+        # الطبقة الأولى (تأتي من الطباعة)
+        st.markdown(f"**الطبقة 1 (الرول المطبوع):** سماكة {base_thickness} ميكرون + حبر ({ink_coverage} g/m2) = **{printed_roll_gsm:.2f} g/m2**")
+        layers_gsm_list.append(printed_roll_gsm)
         
-        st.success(f"⚖️ الوزن النهائي للمتر المربع المطبوع والمبطن: **{final_gsm:.1f} g/m2**")
+        # قاموس المواد لربطه بالخيارات
+        materials_dict = {
+            "Transparent BOPP": bopp_t_density,
+            "White BOPP": bopp_w_density,
+            "Metallized BOPP": bopp_m_density,
+            "Polyester PET": pet_density,
+            "PE (Polyethylene)": pe_density
+        }
+        
+        # إنشاء خانات الطبقات ديناميكياً بناءً على اختيار المستخدم
+        for i in range(2, num_layers + 1):
+            st.markdown(f"**الطبقة {i}:**")
+            col_mat, col_thk = st.columns(2)
+            layer_mat = col_mat.selectbox(f"نوع المادة", list(materials_dict.keys()), key=f"mat_{i}")
+            layer_thk = col_thk.number_input(f"السماكة (ميكرون)", value=20, key=f"thk_{i}")
+            
+            # حساب وزن الطبقة = السماكة * الكثافة المستدعاة من قاموس المواد
+            layer_density = materials_dict[layer_mat]
+            layer_gsm = layer_thk * layer_density
+            layers_gsm_list.append(layer_gsm)
+            st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
 
-    # حساب الإنتاج النهائي بالطن بعد اللامنيشن
-    final_production_tons = (sq_meters_per_month * final_gsm) / 1000000.0
+    # الحسابات النهائية للامنيشن
+    total_substrate_gsm = sum(layers_gsm_list)
+    final_product_gsm = total_substrate_gsm + total_adhesive_gsm
+    
+    # تحويل المساحة إلى أوزان وإنتاج
+    weight_without_adhesive_tons = (sq_meters_per_month * total_substrate_gsm) / 1000000.0
+    adhesive_consumed_kg = (sq_meters_per_month * total_adhesive_gsm) / 1000.0
+    final_production_tons = (sq_meters_per_month * final_product_gsm) / 1000000.0
+
+    st.markdown("---")
+    st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Lamination Outputs)")
+    
+    col_out1, col_out2, col_out3, col_out4 = st.columns(4)
+    col_out1.metric("المساحة الإجمالية المنتجة", f"{sq_meters_per_month:,.0f} م2")
+    col_out2.metric("الوزن الصافي (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
+    col_out3.metric("كمية الغراء المستهلكة", f"{adhesive_consumed_kg:,.0f} كجم")
+    col_out4.metric("الوزن النهائي (مع الغراء)", f"{final_production_tons:,.1f} طن")
 
 # ==========================================
 # TAB 4: الخلاصة المالية
@@ -143,9 +177,9 @@ with tab_finance:
     st.header("الخلاصة والنتائج (Financial Dashboard)")
     selling_price = st.slider("متوسط سعر بيع الطن للمنتج النهائي (ريال)", 10000, 25000, 14000, step=100)
     
-    # التكاليف الشهرية التقريبية
-    adhesive_cost_monthly = ((sq_meters_per_month * total_adhesive_gsm) / 1000.0) * 12 # افترضنا سعر غراء السولفنتلس بـ 12
-    raw_material_avg_cost = final_production_tons * 6000 # متوسط تكلفة افتراضي للطن
+    # تكلفة الغراء بالكيلو (افترضناها 12 ريال من الإكسيل)
+    adhesive_cost_monthly = adhesive_consumed_kg * 12 
+    raw_material_avg_cost = final_production_tons * 6000 # متوسط تقريبي لخامات البلاستيك
     salaries_and_power = 250000
     
     total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + salaries_and_power
@@ -163,7 +197,6 @@ with tab_finance:
     col_f4.metric("صافي الربح الشهري", f"{monthly_profit:,.0f} ريال")
 
     st.markdown("---")
-    # رسم بياني لتوضيح تأثير الطبقات وتغيير الأعمال
     chart_data = {
         "البند": ["تكلفة المواد الخام", "الحبر", "السولفنت", "غراء اللامنيشن", "مصاريف تشغيلية"],
         "التكلفة": [raw_material_avg_cost, ink_cost_monthly, solvent_cost_monthly, adhesive_cost_monthly, salaries_and_power]
