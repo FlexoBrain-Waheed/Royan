@@ -73,15 +73,15 @@ with tab_printing:
         changeover_time = 120 # دقيقة لكل تغيير
         total_lost_time = jobs_per_month * changeover_time
         
-        # حساب الوقت الفعلي
-        total_available_mins = 2 * 12 * 26 * 60 * 0.85 # 85% كفاءة
-        actual_printing_mins = total_available_mins - total_lost_time
+        # حساب الوقت الفعلي للطباعة
+        printing_available_mins = 2 * 12 * 26 * 60 * 0.85 # 85% كفاءة
+        actual_printing_mins = printing_available_mins - total_lost_time
         
-        st.write(f"إجمالي الدقائق المتاحة شهرياً: **{total_available_mins:,.0f} دقيقة**")
+        st.write(f"إجمالي الدقائق المتاحة شهرياً: **{printing_available_mins:,.0f} دقيقة**")
         st.write(f"الوقت الضائع في التجهيز: **{total_lost_time:,.0f} دقيقة**")
         st.success(f"دقائق التشغيل الفعلي الصافي: **{actual_printing_mins:,.0f} دقيقة**")
 
-    # حسابات المساحة والأطوال
+    # حسابات المساحة والأطوال للطباعة
     web_width_m = web_width_mm / 1000.0
     linear_meters_per_month = machine_speed * actual_printing_mins
     sq_meters_per_month = linear_meters_per_month * web_width_m
@@ -90,10 +90,9 @@ with tab_printing:
     st.markdown("---")
     st.subheader("📊 مخرجات قسم الطباعة (Printing Outputs)")
     
-    # 🌟 الإضافة الجديدة: إظهار الأمتار الطولية والمربعة بوضوح
     col_len1, col_len2 = st.columns(2)
-    col_len1.info(f"📏 **إجمالي الأمتار الطولية:** {linear_meters_per_month:,.0f} متر طول")
-    col_len2.info(f"📐 **إجمالي الأمتار المربعة:** {sq_meters_per_month:,.0f} متر مربع")
+    col_len1.info(f"📏 **إجمالي الأمتار الطولية المطبوعة:** {linear_meters_per_month:,.0f} متر طول")
+    col_len2.info(f"📐 **إجمالي الأمتار المربعة المطبوعة:** {sq_meters_per_month:,.0f} متر مربع")
     
     ink_kg_per_month = (sq_meters_per_month * ink_coverage) / 1000.0
     solvent_kg_per_month = ink_kg_per_month * solvent_ratio
@@ -131,11 +130,9 @@ with tab_lamination:
         st.subheader("بناء الهيكل الهندسي (Product Structure)")
         layers_gsm_list = []
         
-        # الطبقة الأولى (تأتي من الطباعة)
-        st.markdown(f"**الطبقة 1 (الرول المطبوع):** سماكة {base_thickness} ميكرون + حبر ({ink_coverage} g/m2) = **{printed_roll_gsm:.2f} g/m2**")
+        st.markdown(f"**الطبقة 1 (الرول المطبوع):** سماكة {base_thickness} ميكرون + حبر = **{printed_roll_gsm:.2f} g/m2**")
         layers_gsm_list.append(printed_roll_gsm)
         
-        # قاموس المواد لربطه بالخيارات
         materials_dict = {
             "Transparent BOPP": bopp_t_density,
             "White BOPP": bopp_w_density,
@@ -144,18 +141,40 @@ with tab_lamination:
             "PE (Polyethylene)": pe_density
         }
         
-        # إنشاء خانات الطبقات ديناميكياً بناءً على اختيار المستخدم
         for i in range(2, num_layers + 1):
             st.markdown(f"**الطبقة {i}:**")
             col_mat, col_thk = st.columns(2)
             layer_mat = col_mat.selectbox(f"نوع المادة", list(materials_dict.keys()), key=f"mat_{i}")
             layer_thk = col_thk.number_input(f"السماكة (ميكرون)", value=20, key=f"thk_{i}")
             
-            # حساب وزن الطبقة = السماكة * الكثافة المستدعاة من قاموس المواد
             layer_density = materials_dict[layer_mat]
             layer_gsm = layer_thk * layer_density
             layers_gsm_list.append(layer_gsm)
             st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
+
+    # ================= NEW: طاقة الماكينة والاستيعاب =================
+    st.markdown("---")
+    st.subheader("⚙️ طاقة ماكينة اللامنيشن والتوافق مع الطباعة (Machine Utilization)")
+    
+    col_cap1, col_cap2 = st.columns(2)
+    with col_cap1:
+        lam_machine_speed = st.slider("سرعة ماكينة اللامنيشن (متر/دقيقة)", 100, 500, 350)
+        # حساب الدقائق المتاحة للامنيشن (نفس معيار الطباعة: ورديتين، 26 يوم، 85% كفاءة)
+        lam_available_mins = 2 * 12 * 26 * 60 * 0.85 
+        lam_max_capacity_meters = lam_machine_speed * lam_available_mins
+
+    with col_cap2:
+        # التشغيل المطلوب = أمتار الطباعة مضروبة في عدد تمريرات اللامنيشن
+        total_lam_run_meters = linear_meters_per_month * passes
+        utilization = (total_lam_run_meters / lam_max_capacity_meters) * 100 if lam_max_capacity_meters > 0 else 0
+
+        st.write(f"🔄 **إجمالي التشغيل الطولي المطلوب للامنيشن:** {total_lam_run_meters:,.0f} متر")
+        st.write(f"🏭 **الطاقة القصوى لماكينة اللامنيشن شهرياً:** {lam_max_capacity_meters:,.0f} متر")
+
+        if utilization <= 100:
+            st.success(f"✅ نسبة استهلاك الماكينة: **{utilization:.1f}%** (الماكينة قادرة على إنجاز إنتاج الطباعة براحة)")
+        else:
+            st.error(f"⚠️ تحذير اختناق (Bottleneck): نسبة استهلاك الماكينة **{utilization:.1f}%**! (كمية الطباعة وتعدد الطبقات يتجاوزان قدرة اللامنيشن، ستحتاج لزيادة السرعة أو تشغيل وردية إضافية).")
 
     # الحسابات النهائية للامنيشن
     total_substrate_gsm = sum(layers_gsm_list)
@@ -167,11 +186,6 @@ with tab_lamination:
 
     st.markdown("---")
     st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Lamination Outputs)")
-    
-    # 🌟 الإضافة الجديدة: إظهار الأمتار الطولية والمربعة في اللامنيشن أيضاً
-    col_lam_len1, col_lam_len2 = st.columns(2)
-    col_lam_len1.info(f"📏 **إجمالي الأمتار الطولية المبطنة:** {linear_meters_per_month:,.0f} متر طول")
-    col_lam_len2.info(f"📐 **إجمالي الأمتار المربعة المبطنة:** {sq_meters_per_month:,.0f} متر مربع")
     
     col_out1, col_out2, col_out3 = st.columns(3)
     col_out1.metric("الوزن الصافي (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
@@ -185,9 +199,8 @@ with tab_finance:
     st.header("الخلاصة والنتائج (Financial Dashboard)")
     selling_price = st.slider("متوسط سعر بيع الطن للمنتج النهائي (ريال)", 10000, 25000, 14000, step=100)
     
-    # تكلفة الغراء بالكيلو (افترضناها 12 ريال من الإكسيل)
     adhesive_cost_monthly = adhesive_consumed_kg * 12 
-    raw_material_avg_cost = final_production_tons * 6000 # متوسط تقريبي لخامات البلاستيك
+    raw_material_avg_cost = final_production_tons * 6000 
     salaries_and_power = 250000
     
     total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + salaries_and_power
