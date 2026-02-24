@@ -115,4 +115,13 @@ with tab_printing:
     col_len2.info(f"📐 أمتار مربعة | Square Meters: **{sq_meters_per_month:,.0f} m2**")
     
     col_res1, col_res2, col_res3, col_res4 = st.columns(4)
-    col_res1.metric("حبر وسولفنت | Ink & Solv
+    col_res1.metric("حبر وسولفنت | Ink & Solv (Kg)", f"{(ink_kg_per_month + solvent_kg_per_month):,.0f}")
+    col_res2.metric("تكلفة الحبر | Ink Cost (SAR)", f"{(ink_cost_monthly + solvent_cost_monthly):,.0f}")
+    col_res3.metric("وزن الفيلم | Base Film (Ton)", f"{base_film_tons_per_month:,.1f}")
+    col_res4.metric("تكلفة الفيلم | Film Cost (SAR)", f"{base_film_cost_monthly:,.0f}")
+
+# ==========================================
+# TAB 3: قسم اللامنيشن (Lamination)
+# ==========================================
+with tab_lamination:
+    st.header("اللامنيشن وهيكل المنتج | Lamination & Structure
