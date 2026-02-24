@@ -6,12 +6,13 @@ st.set_page_config(page_title="Royan Flexo Smart ERP", layout="wide", page_icon=
 st.title("مجموعة رويان - نظام المحاكاة الذكي للإنتاج والتكاليف")
 st.markdown("---")
 
-# --- تقسيم الشاشة إلى 4 أقسام (Tabs) ---
-tab_materials, tab_printing, tab_lamination, tab_finance = st.tabs([
+# --- تقسيم الشاشة إلى 5 أقسام (Tabs) ---
+tab_materials, tab_printing, tab_lamination, tab_machines, tab_finance = st.tabs([
     "📦 1. المواد الخام (Materials)", 
     "🖨️ 2. قسم الطباعة (Printing)", 
     "🥪 3. قسم اللامنيشن (Lamination)", 
-    "📊 4. الخلاصة المالية (Financials)"
+    "🏭 4. الماكينات والأصول (Machinery)",
+    "📊 5. الخلاصة المالية (Financials)"
 ])
 
 # ==========================================
@@ -152,19 +153,16 @@ with tab_lamination:
             layers_gsm_list.append(layer_gsm)
             st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
 
-    # ================= NEW: طاقة الماكينة والاستيعاب =================
     st.markdown("---")
     st.subheader("⚙️ طاقة ماكينة اللامنيشن والتوافق مع الطباعة (Machine Utilization)")
     
     col_cap1, col_cap2 = st.columns(2)
     with col_cap1:
         lam_machine_speed = st.slider("سرعة ماكينة اللامنيشن (متر/دقيقة)", 100, 500, 350)
-        # حساب الدقائق المتاحة للامنيشن (نفس معيار الطباعة: ورديتين، 26 يوم، 85% كفاءة)
         lam_available_mins = 2 * 12 * 26 * 60 * 0.85 
         lam_max_capacity_meters = lam_machine_speed * lam_available_mins
 
     with col_cap2:
-        # التشغيل المطلوب = أمتار الطباعة مضروبة في عدد تمريرات اللامنيشن
         total_lam_run_meters = linear_meters_per_month * passes
         utilization = (total_lam_run_meters / lam_max_capacity_meters) * 100 if lam_max_capacity_meters > 0 else 0
 
@@ -172,11 +170,10 @@ with tab_lamination:
         st.write(f"🏭 **الطاقة القصوى لماكينة اللامنيشن شهرياً:** {lam_max_capacity_meters:,.0f} متر")
 
         if utilization <= 100:
-            st.success(f"✅ نسبة استهلاك الماكينة: **{utilization:.1f}%** (الماكينة قادرة على إنجاز إنتاج الطباعة براحة)")
+            st.success(f"✅ نسبة استهلاك الماكينة: **{utilization:.1f}%**")
         else:
-            st.error(f"⚠️ تحذير اختناق (Bottleneck): نسبة استهلاك الماكينة **{utilization:.1f}%**! (كمية الطباعة وتعدد الطبقات يتجاوزان قدرة اللامنيشن، ستحتاج لزيادة السرعة أو تشغيل وردية إضافية).")
+            st.error(f"⚠️ تحذير اختناق (Bottleneck): نسبة استهلاك الماكينة **{utilization:.1f}%**!")
 
-    # الحسابات النهائية للامنيشن
     total_substrate_gsm = sum(layers_gsm_list)
     final_product_gsm = total_substrate_gsm + total_adhesive_gsm
     
@@ -193,17 +190,63 @@ with tab_lamination:
     col_out3.metric("الوزن النهائي (مع الغراء)", f"{final_production_tons:,.1f} طن")
 
 # ==========================================
-# TAB 4: الخلاصة المالية
+# TAB 4: الماكينات والأصول (القسم الجديد المضاف)
+# ==========================================
+with tab_machines:
+    st.header("إدارة الأصول واستهلاك الطاقة (Assets & Utilities Management)")
+    st.info("💡 يمكنك تعديل سعر الماكينة، سنوات إهلاكها، واستهلاكها للكهرباء مباشرة من الجدول بالأسفل. سيتم حساب الإهلاك الشهري وتكلفة الكهرباء تلقائياً وخصمها من الأرباح النهائية.")
+    
+    # إعدادات الكهرباء
+    col_elec1, col_elec2 = st.columns(2)
+    electricity_rate = col_elec1.number_input("سعر الكيلوواط/ساعة (SAR/kWh)", value=0.18, format="%.3f")
+    working_hours_per_month = col_elec2.number_input("ساعات تشغيل المصنع شهرياً (ورديتين * 12 * 26)", value=624)
+
+    # قائمة الماكينات الافتراضية
+    default_machines = pd.DataFrame([
+        {"Machine": "ماكينة طباعة فلكسو (CI Flexo)", "Cost_SAR": 8000000, "Life_Years": 15, "Power_kW": 150},
+        {"Machine": "ماكينة لامنيشن (Solventless)", "Cost_SAR": 1200000, "Life_Years": 15, "Power_kW": 125},
+        {"Machine": "إكسترودر (PE Extruder)", "Cost_SAR": 5000000, "Life_Years": 15, "Power_kW": 250},
+        {"Machine": "قطاعة (Slitter)", "Cost_SAR": 800000, "Life_Years": 15, "Power_kW": 40},
+        {"Machine": "ماكينات تقطيع الأكياس (1-5)", "Cost_SAR": 620000, "Life_Years": 10, "Power_kW": 50},
+        {"Machine": "مبرد (Chiller)", "Cost_SAR": 400000, "Life_Years": 15, "Power_kW": 60},
+        {"Machine": "كمبروسر هواء (Compressor)", "Cost_SAR": 200000, "Life_Years": 15, "Power_kW": 30},
+        {"Machine": "تجهيزات المبنى والهنجر", "Cost_SAR": 4000000, "Life_Years": 25, "Power_kW": 0},
+    ])
+
+    st.markdown("### جدول الأصول (قابل للتعديل)")
+    # استخدام st.data_editor ليتيح لك التعديل الحي على الأرقام وإضافة/حذف ماكينات!
+    edited_machines = st.data_editor(default_machines, num_rows="dynamic", use_container_width=True)
+
+    # الحسابات الذكية للإهلاك والكهرباء
+    edited_machines["Monthly_Depreciation"] = edited_machines["Cost_SAR"] / (edited_machines["Life_Years"] * 12)
+    # استهلاك الكهرباء = الكيلوواط * ساعات العمل * الكفاءة (نفترض 85% تشغيل فعلي للمواتير) * سعر الكيلوواط
+    edited_machines["Monthly_Power_Cost"] = edited_machines["Power_kW"] * working_hours_per_month * 0.85 * electricity_rate
+
+    total_capex = edited_machines["Cost_SAR"].sum()
+    total_monthly_depreciation = edited_machines["Monthly_Depreciation"].sum()
+    total_monthly_power = edited_machines["Monthly_Power_Cost"].sum()
+
+    st.markdown("---")
+    st.subheader("مخرجات قسم الأصول والتكاليف الثابتة (Overheads)")
+    col_mac1, col_mac2, col_mac3 = st.columns(3)
+    col_mac1.metric("إجمالي الأصول (CAPEX)", f"{total_capex:,.0f} ريال")
+    col_mac2.metric("إجمالي الإهلاك الشهري", f"{total_monthly_depreciation:,.0f} ريال")
+    col_mac3.metric("فاتورة الكهرباء الشهرية", f"{total_monthly_power:,.0f} ريال")
+
+# ==========================================
+# TAB 5: الخلاصة المالية (تم تحديثها لترتبط بالماكينات)
 # ==========================================
 with tab_finance:
     st.header("الخلاصة والنتائج (Financial Dashboard)")
     selling_price = st.slider("متوسط سعر بيع الطن للمنتج النهائي (ريال)", 10000, 25000, 14000, step=100)
+    monthly_salaries = st.number_input("إجمالي الرواتب الشهرية والمصاريف الإدارية (SAR)", value=200000)
     
     adhesive_cost_monthly = adhesive_consumed_kg * 12 
     raw_material_avg_cost = final_production_tons * 6000 
-    salaries_and_power = 250000
     
-    total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + salaries_and_power
+    # التكلفة الإجمالية الآن تقرأ فاتورة الكهرباء والإهلاك من جدول الماكينات!
+    total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + total_monthly_power + total_monthly_depreciation + monthly_salaries
+    
     monthly_revenue = final_production_tons * selling_price
     monthly_profit = monthly_revenue - total_monthly_cost
     
@@ -219,9 +262,9 @@ with tab_finance:
 
     st.markdown("---")
     chart_data = {
-        "البند": ["تكلفة المواد الخام", "الحبر", "السولفنت", "غراء اللامنيشن", "مصاريف تشغيلية"],
-        "التكلفة": [raw_material_avg_cost, ink_cost_monthly, solvent_cost_monthly, adhesive_cost_monthly, salaries_and_power]
+        "البند": ["تكلفة المواد الخام", "الحبر والسولفنت", "غراء اللامنيشن", "الكهرباء", "الإهلاك الشهري للمعدات", "الرواتب والمصاريف"],
+        "التكلفة": [raw_material_avg_cost, ink_cost_monthly + solvent_cost_monthly, adhesive_cost_monthly, total_monthly_power, total_monthly_depreciation, monthly_salaries]
     }
     df_chart = pd.DataFrame(chart_data)
-    fig = px.pie(df_chart, values='التكلفة', names='البند', hole=0.4, title="تحليل التكاليف التشغيلية")
+    fig = px.pie(df_chart, values='التكلفة', names='البند', hole=0.4, title="التحليل الدقيق للتكاليف التشغيلية (OPEX + Overheads)")
     st.plotly_chart(fig, use_container_width=True)
