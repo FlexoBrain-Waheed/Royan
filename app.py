@@ -121,11 +121,18 @@ with tab_lamination:
     col_l1, col_l2 = st.columns([1, 2])
     
     with col_l1:
-        num_layers = st.selectbox("عدد طبقات المنتج النهائي (Layers)", [2, 3, 4])
-        passes = num_layers - 1
-        adhesive_gsm = st.number_input("وزن غراء اللامنيشن (g/m2) للتمريرة", value=1.8)
-        total_adhesive_gsm = adhesive_gsm * passes
-        st.info(f"إجمالي الغراء للمنتج: **{total_adhesive_gsm} g/m2** (عدد التمريرات: {passes})")
+        # 🌟 الإضافة الجديدة: خيار 1 يعني "بدون لامنيشن"
+        num_layers = st.selectbox("عدد طبقات المنتج النهائي (Layers)", [1, 2, 3, 4], format_func=lambda x: "1 (طباعة فقط - بدون لامنيشن)" if x == 1 else str(x))
+        passes = max(0, num_layers - 1)
+        
+        if passes > 0:
+            adhesive_gsm = st.number_input("وزن غراء اللامنيشن (g/m2) للتمريرة", value=1.8)
+            total_adhesive_gsm = adhesive_gsm * passes
+            st.info(f"إجمالي الغراء للمنتج: **{total_adhesive_gsm} g/m2** (عدد التمريرات: {passes})")
+        else:
+            adhesive_gsm = 0.0
+            total_adhesive_gsm = 0.0
+            st.success("🚫 المنتج سيذهب للتقطيع مباشرة (لا يوجد استهلاك غراء أو تشغيل لامنيشن).")
 
     with col_l2:
         st.subheader("بناء الهيكل الهندسي (Product Structure)")
@@ -142,16 +149,17 @@ with tab_lamination:
             "PE (Polyethylene)": pe_density
         }
         
-        for i in range(2, num_layers + 1):
-            st.markdown(f"**الطبقة {i}:**")
-            col_mat, col_thk = st.columns(2)
-            layer_mat = col_mat.selectbox(f"نوع المادة", list(materials_dict.keys()), key=f"mat_{i}")
-            layer_thk = col_thk.number_input(f"السماكة (ميكرون)", value=20, key=f"thk_{i}")
-            
-            layer_density = materials_dict[layer_mat]
-            layer_gsm = layer_thk * layer_density
-            layers_gsm_list.append(layer_gsm)
-            st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
+        if num_layers > 1:
+            for i in range(2, num_layers + 1):
+                st.markdown(f"**الطبقة {i}:**")
+                col_mat, col_thk = st.columns(2)
+                layer_mat = col_mat.selectbox(f"نوع المادة", list(materials_dict.keys()), key=f"mat_{i}")
+                layer_thk = col_thk.number_input(f"السماكة (ميكرون)", value=20, key=f"thk_{i}")
+                
+                layer_density = materials_dict[layer_mat]
+                layer_gsm = layer_thk * layer_density
+                layers_gsm_list.append(layer_gsm)
+                st.caption(f"وزن {layer_mat}: {layer_gsm:.2f} g/m2 (الكثافة: {layer_density})")
 
     st.markdown("---")
     st.subheader("⚙️ طاقة ماكينة اللامنيشن والتوافق مع الطباعة (Machine Utilization)")
@@ -169,7 +177,9 @@ with tab_lamination:
         st.write(f"🔄 **إجمالي التشغيل الطولي المطلوب للامنيشن:** {total_lam_run_meters:,.0f} متر")
         st.write(f"🏭 **الطاقة القصوى لماكينة اللامنيشن شهرياً:** {lam_max_capacity_meters:,.0f} متر")
 
-        if utilization <= 100:
+        if passes == 0:
+            st.success("✅ المنتج عبارة عن طبقة واحدة مطبوعة ولا يحتاج إلى التشغيل على ماكينة اللامنيشن نهائياً.")
+        elif utilization <= 100:
             st.success(f"✅ نسبة استهلاك الماكينة: **{utilization:.1f}%**")
         else:
             st.error(f"⚠️ تحذير اختناق (Bottleneck): نسبة استهلاك الماكينة **{utilization:.1f}%**!")
@@ -182,26 +192,23 @@ with tab_lamination:
     final_production_tons = (sq_meters_per_month * final_product_gsm) / 1000000.0
 
     st.markdown("---")
-    st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Lamination Outputs)")
+    st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Final Outputs)")
     
     col_out1, col_out2, col_out3 = st.columns(3)
-    col_out1.metric("الوزن الصافي (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
+    col_out1.metric("الوزن الصافي للمواد (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
     col_out2.metric("كمية الغراء المستهلكة", f"{adhesive_consumed_kg:,.0f} كجم")
-    col_out3.metric("الوزن النهائي (مع الغراء)", f"{final_production_tons:,.1f} طن")
+    col_out3.metric("الوزن النهائي للبيع", f"{final_production_tons:,.1f} طن")
 
 # ==========================================
-# TAB 4: الماكينات والأصول (القسم الجديد المضاف)
+# TAB 4: الماكينات والأصول 
 # ==========================================
 with tab_machines:
     st.header("إدارة الأصول واستهلاك الطاقة (Assets & Utilities Management)")
-    st.info("💡 يمكنك تعديل سعر الماكينة، سنوات إهلاكها، واستهلاكها للكهرباء مباشرة من الجدول بالأسفل. سيتم حساب الإهلاك الشهري وتكلفة الكهرباء تلقائياً وخصمها من الأرباح النهائية.")
     
-    # إعدادات الكهرباء
     col_elec1, col_elec2 = st.columns(2)
     electricity_rate = col_elec1.number_input("سعر الكيلوواط/ساعة (SAR/kWh)", value=0.18, format="%.3f")
     working_hours_per_month = col_elec2.number_input("ساعات تشغيل المصنع شهرياً (ورديتين * 12 * 26)", value=624)
 
-    # قائمة الماكينات الافتراضية
     default_machines = pd.DataFrame([
         {"Machine": "ماكينة طباعة فلكسو (CI Flexo)", "Cost_SAR": 8000000, "Life_Years": 15, "Power_kW": 150},
         {"Machine": "ماكينة لامنيشن (Solventless)", "Cost_SAR": 1200000, "Life_Years": 15, "Power_kW": 125},
@@ -214,12 +221,9 @@ with tab_machines:
     ])
 
     st.markdown("### جدول الأصول (قابل للتعديل)")
-    # استخدام st.data_editor ليتيح لك التعديل الحي على الأرقام وإضافة/حذف ماكينات!
     edited_machines = st.data_editor(default_machines, num_rows="dynamic", use_container_width=True)
 
-    # الحسابات الذكية للإهلاك والكهرباء
     edited_machines["Monthly_Depreciation"] = edited_machines["Cost_SAR"] / (edited_machines["Life_Years"] * 12)
-    # استهلاك الكهرباء = الكيلوواط * ساعات العمل * الكفاءة (نفترض 85% تشغيل فعلي للمواتير) * سعر الكيلوواط
     edited_machines["Monthly_Power_Cost"] = edited_machines["Power_kW"] * working_hours_per_month * 0.85 * electricity_rate
 
     total_capex = edited_machines["Cost_SAR"].sum()
@@ -234,7 +238,7 @@ with tab_machines:
     col_mac3.metric("فاتورة الكهرباء الشهرية", f"{total_monthly_power:,.0f} ريال")
 
 # ==========================================
-# TAB 5: الخلاصة المالية (تم تحديثها لترتبط بالماكينات)
+# TAB 5: الخلاصة المالية 
 # ==========================================
 with tab_finance:
     st.header("الخلاصة والنتائج (Financial Dashboard)")
@@ -244,7 +248,6 @@ with tab_finance:
     adhesive_cost_monthly = adhesive_consumed_kg * 12 
     raw_material_avg_cost = final_production_tons * 6000 
     
-    # التكلفة الإجمالية الآن تقرأ فاتورة الكهرباء والإهلاك من جدول الماكينات!
     total_monthly_cost = raw_material_avg_cost + ink_cost_monthly + solvent_cost_monthly + adhesive_cost_monthly + total_monthly_power + total_monthly_depreciation + monthly_salaries
     
     monthly_revenue = final_production_tons * selling_price
