@@ -81,7 +81,7 @@ with tab_printing:
         st.write(f"الوقت الضائع في التجهيز: **{total_lost_time:,.0f} دقيقة**")
         st.success(f"دقائق التشغيل الفعلي الصافي: **{actual_printing_mins:,.0f} دقيقة**")
 
-    # حسابات المساحة
+    # حسابات المساحة والأطوال
     web_width_m = web_width_mm / 1000.0
     linear_meters_per_month = machine_speed * actual_printing_mins
     sq_meters_per_month = linear_meters_per_month * web_width_m
@@ -89,6 +89,11 @@ with tab_printing:
     # مخرجات الطباعة
     st.markdown("---")
     st.subheader("📊 مخرجات قسم الطباعة (Printing Outputs)")
+    
+    # 🌟 الإضافة الجديدة: إظهار الأمتار الطولية والمربعة بوضوح
+    col_len1, col_len2 = st.columns(2)
+    col_len1.info(f"📏 **إجمالي الأمتار الطولية:** {linear_meters_per_month:,.0f} متر طول")
+    col_len2.info(f"📐 **إجمالي الأمتار المربعة:** {sq_meters_per_month:,.0f} متر مربع")
     
     ink_kg_per_month = (sq_meters_per_month * ink_coverage) / 1000.0
     solvent_kg_per_month = ink_kg_per_month * solvent_ratio
@@ -156,7 +161,6 @@ with tab_lamination:
     total_substrate_gsm = sum(layers_gsm_list)
     final_product_gsm = total_substrate_gsm + total_adhesive_gsm
     
-    # تحويل المساحة إلى أوزان وإنتاج
     weight_without_adhesive_tons = (sq_meters_per_month * total_substrate_gsm) / 1000000.0
     adhesive_consumed_kg = (sq_meters_per_month * total_adhesive_gsm) / 1000.0
     final_production_tons = (sq_meters_per_month * final_product_gsm) / 1000000.0
@@ -164,11 +168,15 @@ with tab_lamination:
     st.markdown("---")
     st.subheader("📊 مخرجات قسم اللامنيشن والإنتاج النهائي (Lamination Outputs)")
     
-    col_out1, col_out2, col_out3, col_out4 = st.columns(4)
-    col_out1.metric("المساحة الإجمالية المنتجة", f"{sq_meters_per_month:,.0f} م2")
-    col_out2.metric("الوزن الصافي (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
-    col_out3.metric("كمية الغراء المستهلكة", f"{adhesive_consumed_kg:,.0f} كجم")
-    col_out4.metric("الوزن النهائي (مع الغراء)", f"{final_production_tons:,.1f} طن")
+    # 🌟 الإضافة الجديدة: إظهار الأمتار الطولية والمربعة في اللامنيشن أيضاً
+    col_lam_len1, col_lam_len2 = st.columns(2)
+    col_lam_len1.info(f"📏 **إجمالي الأمتار الطولية المبطنة:** {linear_meters_per_month:,.0f} متر طول")
+    col_lam_len2.info(f"📐 **إجمالي الأمتار المربعة المبطنة:** {sq_meters_per_month:,.0f} متر مربع")
+    
+    col_out1, col_out2, col_out3 = st.columns(3)
+    col_out1.metric("الوزن الصافي (بدون غراء)", f"{weight_without_adhesive_tons:,.1f} طن")
+    col_out2.metric("كمية الغراء المستهلكة", f"{adhesive_consumed_kg:,.0f} كجم")
+    col_out3.metric("الوزن النهائي (مع الغراء)", f"{final_production_tons:,.1f} طن")
 
 # ==========================================
 # TAB 4: الخلاصة المالية
