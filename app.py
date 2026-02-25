@@ -9,7 +9,7 @@ def fmt(num):
 def fmt1(num):
     return "{:,.1f}".format(num)
 
-st.set_page_config(layout="wide", page_title="Royan ERP", page_icon="⚙️")
+st.set_page_config(layout="wide", page_title="Royan ERP")
 
 st.title("Royan Smart ERP | رويان - نظام المحاكاة")
 st.markdown("---")
@@ -37,7 +37,7 @@ tab_mix = tabs[7]
 # TAB 1: Materials
 # ==========================================
 with tab_mat:
-    st.header("إعدادات المواد الخام")
+    st.header("اعدادات المواد الخام")
     c1, c2, c3 = st.columns(3)
     
     with c1:
@@ -70,7 +70,7 @@ with tab_mat:
     }
 
     st.markdown("---")
-    st.subheader("الأحبار والمذيبات")
+    st.subheader("الاحبار والمذيبات")
     cm1, cm2, cm3 = st.columns(3)
     ink_price = cm1.number_input("سعر الحبر", value=15.0)
     solvent_price = cm2.number_input("سعر السولفنت", value=7.0)
@@ -118,8 +118,8 @@ with tab_prn:
 
     st.markdown("---")
     cr1, cr2, cr3 = st.columns(3)
-    cr1.metric("أمتار طولية", fmt(linear_meters_per_month))
-    cr2.metric("أمتار مربعة", fmt(sq_meters_per_month))
+    cr1.metric("امتار طولية", fmt(linear_meters_per_month))
+    cr2.metric("امتار مربعة", fmt(sq_meters_per_month))
     cr3.metric("وزن الطباعة طن", fmt1(printing_prod_tons))
 
 # ==========================================
@@ -179,7 +179,7 @@ with tab_lam:
 # TAB 4: Machinery
 # ==========================================
 with tab_mac:
-    st.header("إدارة الأصول")
+    st.header("ادارة الاصول")
     ce1, ce2 = st.columns(2)
     elec_rate = ce1.number_input("سعر الكيلوواط", value=0.18)
     work_hrs = ce2.number_input("ساعات العمل", value=624)
@@ -187,12 +187,253 @@ with tab_mac:
     mac_data = [
         {"Machine": "فلكسو", "Cost": 8000000, "Years": 15, "kW": 150},
         {"Machine": "لامنيشن", "Cost": 1200000, "Years": 15, "kW": 125},
-        {"Machine": "إكسترودر", "Cost": 5000000, "Years": 15, "kW": 250},
+        {"Machine": "اكسترودر", "Cost": 5000000, "Years": 15, "kW": 250},
         {"Machine": "قطاعة", "Cost": 800000, "Years": 15, "kW": 40},
-        {"Machine": "أكياس", "Cost": 620000, "Years": 10, "kW": 50},
+        {"Machine": "اكياس", "Cost": 620000, "Years": 10, "kW": 50},
         {"Machine": "مبنى", "Cost": 4000000, "Years": 25, "kW": 0},
     ]
 
     df_mac = st.data_editor(pd.DataFrame(mac_data), use_container_width=True)
     df_mac["Deprec"] = df_mac["Cost"] / (df_mac["Years"] * 12)
-    df
+    df_mac["Power"] = df_mac["kW"] * work_hrs * 0.85 * elec_rate
+
+    tot_deprec = df_mac["Deprec"].sum()
+    tot_power = df_mac["Power"].sum()
+
+# ==========================================
+# TAB 5: HR
+# ==========================================
+with tab_hr:
+    st.header("الموارد البشرية")
+    
+    hr_data = [
+        {"Job": "مدير", "Count": 1, "Salary": 15000},
+        {"Job": "مهندس", "Count": 2, "Salary": 8000},
+        {"Job": "فني", "Count": 8, "Salary": 4000},
+        {"Job": "عامل", "Count": 8, "Salary": 1800},
+        {"Job": "مبيعات", "Count": 3, "Salary": 4500},
+        {"Job": "سائق", "Count": 3, "Salary": 2500},
+    ]
+    
+    df_hr = st.data_editor(pd.DataFrame(hr_data), use_container_width=True)
+    allowance = st.slider("نسبة البدلات", 10, 50, 25)
+    iqama = st.number_input("رسوم اقامات", value=600)
+    
+    tot_basic = (df_hr["Count"] * df_hr["Salary"]).sum()
+    tot_hr_cost = tot_basic + (tot_basic * allowance / 100) + (df_hr["Count"].sum() * iqama)
+
+    trucks = st.number_input("سيارات", value=3)
+    truck_cost = trucks * 2000 
+    admin_cost = st.number_input("مصاريف ادارية", value=24000)
+    
+    grand_hr_admin = tot_hr_cost + truck_cost + admin_cost
+
+# ==========================================
+# TAB 6: Finance
+# ==========================================
+with tab_fin:
+    st.header("الخلاصة المالية")
+    selling_price = st.slider("سعر البيع", 10000, 25000, 14000)
+    
+    adhesive_cost = adhesive_kg * 12 
+    
+    total_cost = (
+        total_raw_cost + ink_cost_monthly + solvent_cost_monthly + 
+        adhesive_cost + tot_power + tot_deprec + grand_hr_admin
+    )
+    
+    revenue = final_tons * selling_price
+    profit = revenue - total_cost
+    
+    if final_tons > 0:
+        cpt = total_cost / final_tons 
+    else:
+        cpt = 0
+
+    cf1, cf2, cf3, cf4 = st.columns(4)
+    cf1.metric("الانتاج", fmt1(final_tons))
+    cf2.metric("تكلفة الطن", fmt(cpt))
+    cf3.metric("مبيعات", fmt(revenue))
+    cf4.metric("الربح", fmt(profit))
+
+    chart_data = {
+        "Item": ["مواد خام", "حبر وغراء", "طاقة واهلاك", "رواتب", "ادارة"],
+        "Cost": [
+            total_raw_cost, 
+            (ink_cost_monthly + solvent_cost_monthly + adhesive_cost), 
+            (tot_power + tot_deprec), 
+            tot_hr_cost, 
+            (truck_cost + admin_cost)
+        ]
+    }
+    fig = px.pie(pd.DataFrame(chart_data), values='Cost', names='Item', hole=0.4)
+    st.plotly_chart(fig, use_container_width=True)
+
+# ==========================================
+# TAB 7: Compare Roto vs Flexo
+# ==========================================
+with tab_comp:
+    st.header("مقارنة فلكسو وروتو")
+
+    st.subheader("اعدادات الطلبية")
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        job_colors = st.number_input("عدد الالوان", value=8)
+        avg_mat_cost = st.number_input("تكلفة مواد الطن", value=9000)
+    with cc2:
+        meters_per_ton = st.number_input("امتار الطن", value=20000)
+
+    st.markdown("---")
+    st.subheader("التجهيز والهالك")
+    cw1, cw2 = st.columns(2)
+    with cw1:
+        f_plate = st.number_input("سعر بليت فلكسو", value=400)
+        f_waste = st.number_input("هالك فلكسو (كجم)", value=50)
+    with cw2:
+        r_cyl = st.number_input("سعر سلندر روتو", value=1500)
+        r_waste = st.number_input("هالك روتو (كجم)", value=250)
+
+    st.markdown("---")
+    st.subheader("المستهلكات الدقيقة")
+    c_cons1, c_cons2 = st.columns(2)
+    with c_cons1:
+        anilox_p = st.number_input("سعر انيلوكس", value=15000)
+        anilox_l = st.number_input("عمر انيلوكس", value=200000000)
+        fb_p = st.number_input("سعر بليد فلكسو", value=9.0)
+        fb_len = st.number_input("طول بليد فلكسو", value=1.3)
+        fb_life = st.number_input("عمر بليد فلكسو", value=500000)
+    with c_cons2:
+        r_roll_p = st.number_input("سعر رول روتو", value=1500)
+        r_roll_l = st.number_input("عمر رول روتو", value=15000000)
+        rb_p = st.number_input("سعر بليد روتو", value=9.0)
+        rb_len = st.number_input("طول بليد روتو", value=1.3)
+        rb_life = st.number_input("عمر بليد روتو", value=500000)
+
+    st.markdown("---")
+    st.subheader("الماكينة والطاقة")
+    
+    c_mac1, c_mac2 = st.columns(2)
+    with c_mac1:
+        f_mac_price = st.number_input("سعر ماكينة فلكسو", value=8000000)
+        f_kw = st.number_input("طاقة فلكسو (kW)", value=150)
+    with c_mac2:
+        r_mac_price = st.number_input("سعر ماكينة روتو", value=10000000)
+        r_boiler_price = st.number_input("سعر غلاية روتو", value=1500000)
+        r_kw = st.number_input("طاقة روتو (kW)", value=350)
+
+    c_gen1, c_gen2, c_gen3 = st.columns(3)
+    mac_life_years = c_gen1.number_input("عمر الماكينات", value=15)
+    work_hrs_month = c_gen2.number_input("ساعات المصنع", value=624)
+    avg_prod_month = c_gen3.number_input("متوسط الانتاج الشهري", value=300)
+
+    f_setup = job_colors * f_plate
+    r_setup = job_colors * r_cyl
+    mat_kg_cost = avg_mat_cost / 1000.0
+    f_waste_cost = f_waste * mat_kg_cost
+    r_waste_cost = r_waste * mat_kg_cost
+    tot_f_fixed = f_setup + f_waste_cost
+    tot_r_fixed = r_setup + r_waste_cost
+
+    f_ani_m = (anilox_p / anilox_l) * job_colors
+    f_bld_m = ((2 * fb_len * fb_p) / fb_life) * job_colors
+    tot_f_cons = f_ani_m + f_bld_m
+
+    r_rol_m = (r_roll_p / r_roll_l) * job_colors
+    r_bld_m = ((1 * rb_len * rb_p) / rb_life) * job_colors
+    tot_r_cons = r_rol_m + r_bld_m
+
+    f_dep_m = f_mac_price / (mac_life_years * 12)
+    f_pow_m = f_kw * work_hrs_month * 0.18
+    f_mac_per_ton = (f_dep_m + f_pow_m) / avg_prod_month
+
+    r_total_inv = r_mac_price + r_boiler_price
+    r_dep_m = r_total_inv / (mac_life_years * 12)
+    r_pow_m = r_kw * work_hrs_month * 0.18
+    r_mac_per_ton = (r_dep_m + r_pow_m) / avg_prod_month
+
+    st.markdown("---")
+    st.subheader("الرسم البياني")
+
+    job_sizes = list(range(1, 51))
+    f_cost_list = []
+    r_cost_list = []
+
+    for t in job_sizes:
+        f_c = avg_mat_cost + (tot_f_fixed / t) + (tot_f_cons * meters_per_ton) + f_mac_per_ton
+        r_c = avg_mat_cost + (tot_r_fixed / t) + (tot_r_cons * meters_per_ton) + r_mac_per_ton
+        f_cost_list.append(f_c)
+        r_cost_list.append(r_c)
+
+    df_comp = pd.DataFrame({
+        "الطن": job_sizes,
+        "فلكسو": f_cost_list,
+        "روتو": r_cost_list
+    })
+
+    fig_comp = go.Figure()
+    fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["فلكسو"], name='فلكسو'))
+    fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["روتو"], name='روتو'))
+    st.plotly_chart(fig_comp, use_container_width=True)
+
+# ==========================================
+# TAB 8: Client Mix
+# ==========================================
+with tab_mix:
+    st.header("تحليل مبيعات العميل")
+    
+    tot_vol = st.number_input("الطلب السنوي (طن)", value=1200)
+
+    crm1, crm2 = st.columns(2)
+
+    with crm1:
+        st.subheader("مبيعات الروتو")
+        r_data = [
+            {"هيكل": "طبقة", "نسبة": 30.0, "سعر": 13.0},
+            {"هيكل": "طبقتين", "نسبة": 50.0, "سعر": 13.5},
+            {"هيكل": "3 طبقات", "نسبة": 20.0, "سعر": 15.0},
+        ]
+        df_r_mix = st.data_editor(pd.DataFrame(r_data), use_container_width=True, key="r_mix")
+        
+        df_r_mix["كمية"] = tot_vol * (df_r_mix["نسبة"] / 100.0)
+        df_r_mix["ايراد"] = df_r_mix["كمية"] * df_r_mix["سعر"] * 1000
+        
+        r_tot_rev = df_r_mix["ايراد"].sum()
+        r_avg_p = r_tot_rev / (tot_vol * 1000) if tot_vol > 0 else 0
+            
+        st.metric("ايرادات الروتو", fmt(r_tot_rev))
+        st.metric("متوسط سعر الروتو", fmt1(r_avg_p))
+
+    with crm2:
+        st.subheader("مبيعات الفلكسو")
+        f_data = [
+            {"هيكل": "طبقة", "نسبة": 60.0, "سعر": 12.0},
+            {"هيكل": "طبقتين", "نسبة": 30.0, "سعر": 13.0},
+            {"هيكل": "3 طبقات", "نسبة": 10.0, "سعر": 15.0},
+        ]
+        df_f_mix = st.data_editor(pd.DataFrame(f_data), use_container_width=True, key="f_mix")
+
+        df_f_mix["كمية"] = tot_vol * (df_f_mix["نسبة"] / 100.0)
+        df_f_mix["ايراد"] = df_f_mix["كمية"] * df_f_mix["سعر"] * 1000
+        
+        f_tot_rev = df_f_mix["ايراد"].sum()
+        f_avg_p = f_tot_rev / (tot_vol * 1000) if tot_vol > 0 else 0
+            
+        st.metric("ايرادات الفلكسو", fmt(f_tot_rev))
+        st.metric("متوسط سعر الفلكسو", fmt1(f_avg_p))
+
+    st.markdown("---")
+    st.subheader("الرسم البياني")
+    
+    df_r_mix["التقنية"] = "روتو"
+    df_f_mix["التقنية"] = "فلكسو"
+    
+    df_cmb = pd.concat([df_r_mix, df_f_mix])
+    
+    cv1, cv2 = st.columns(2)
+    with cv1:
+        fig_v = px.bar(df_cmb, x="التقنية", y="كمية", color="هيكل", barmode="group")
+        st.plotly_chart(fig_v, use_container_width=True)
+        
+    with cv2:
+        fig_r = px.bar(df_cmb, x="التقنية", y="ايراد", color="هيكل", barmode="group")
+        st.plotly_chart(fig_r, use_container_width=True)
