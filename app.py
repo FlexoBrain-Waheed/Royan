@@ -7,15 +7,16 @@ st.set_page_config(page_title="Royan Flexo Smart ERP", layout="wide", page_icon=
 st.title("مجموعة رويان - نظام المحاكاة الذكي للإنتاج والتكاليف")
 st.markdown("---")
 
-# --- تقسيم الشاشة إلى 7 أقسام ---
-tab_materials, tab_printing, tab_lamination, tab_machines, tab_hr_admin, tab_finance, tab_compare = st.tabs([
+# --- تقسيم الشاشة إلى 8 أقسام ---
+tab_materials, tab_printing, tab_lamination, tab_machines, tab_hr_admin, tab_finance, tab_compare, tab_client_mix = st.tabs([
     "📦 1. المواد الخام",
     "🖨️ 2. قسم الطباعة",
     "🥪 3. قسم اللامنيشن",
     "🏭 4. الماكينات والأصول",
     "👥 5. الموارد البشرية",
     "📊 6. الخلاصة المالية",
-    "⚖️ 7. مقارنة روتو ضد فلكسو"
+    "⚖️ 7. مقارنة روتو ضد فلكسو",
+    "🎯 8. تحليل كميات العميل"
 ])
 
 # ==========================================
@@ -305,11 +306,11 @@ with tab_finance:
     st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# TAB 7: مقارنة الروتو والفلكسو (متضمنة المستهلكات الدقيقة)
+# TAB 7: مقارنة الروتو والفلكسو 
 # ==========================================
 with tab_compare:
     st.header("مقارنة التكلفة والربحية: فلكسو ضد روتوجرافيور")
-    st.info("الآن تشمل المحاكاة التجهيز (سلندرات/بليتات)، الهالك، بالإضافة للمستهلكات الدقيقة (أنيلوكس ودكتور بليد)!")
+    st.info("تشمل المحاكاة التجهيز (سلندرات/بليتات)، الهالك، والمستهلكات الدقيقة (أنيلوكس ودكتور بليد)!")
 
     col_c1, col_c2 = st.columns(2)
 
@@ -320,7 +321,7 @@ with tab_compare:
         meters_per_ton = st.number_input("متوسط الأمتار الطولية في الطن الواحد (متر)", value=20000)
 
     with col_c2:
-        st.subheader("2. مقارنة التجهيز والهالك (Pre-press & Waste)")
+        st.subheader("2. مقارنة التجهيز والهالك")
         flexo_plate_cost_per_color = st.number_input("تكلفة البليت للون - فلكسو (ريال)", value=400)
         roto_cyl_cost_per_color = st.number_input("تكلفة السلندر للون - روتو (ريال)", value=1500)
 
@@ -339,7 +340,7 @@ with tab_compare:
         flexo_blade_price = st.number_input("سعر متر الدكتور بليد (ريال)", value=9.0)
         flexo_blade_length = st.number_input("طول الدكتور بليد للشمبر (متر)", value=1.3)
         flexo_blade_life = st.number_input("عمر الدكتور بليد - فلكسو (متر طولي)", value=500000)
-        st.caption("ملاحظة: الشمبر في الفلكسو يستهلك عدد (2) دكتور بليد للون الواحد.")
+        st.caption("ملاحظة: الشمبر في الفلكسو يستهلك عدد (2) دكتور بليد للون.")
 
     with col_cons2:
         st.markdown("**مستهلكات الروتو (لكل لون)**")
@@ -349,11 +350,8 @@ with tab_compare:
         roto_blade_price = st.number_input("سعر متر شفرة الروتو (ريال)", value=9.0)
         roto_blade_length = st.number_input("طول شفرة الروتو (متر)", value=1.3)
         roto_blade_life = st.number_input("عمر شفرة الروتو (متر طولي)", value=500000)
-        st.caption("ملاحظة: وحدة الروتو تستهلك عدد (1) دكتور بليد للون الواحد.")
+        st.caption("ملاحظة: وحدة الروتو تستهلك عدد (1) دكتور بليد للون.")
 
-    # ------ الحسابات المعقدة خلف الكواليس ------
-    
-    # 1. التكاليف الثابتة (بليتات/سلندرات + هالك)
     flexo_setup_cost = job_colors * flexo_plate_cost_per_color
     roto_setup_cost = job_colors * roto_cyl_cost_per_color
 
@@ -364,76 +362,13 @@ with tab_compare:
     total_flexo_fixed_cost = flexo_setup_cost + flexo_waste_cost
     total_roto_fixed_cost = roto_setup_cost + roto_waste_cost
 
-    # 2. تكلفة المستهلكات المتغيرة لكل (1 متر طولي) لجميع الألوان
     flexo_anilox_cost_per_m = (anilox_price / anilox_life) * job_colors
-    # نضرب في 2 لأن الفلكسو به 2 شفرات للشمبر
     flexo_blade_cost_per_m = ((2 * flexo_blade_length * flexo_blade_price) / flexo_blade_life) * job_colors
     total_flexo_cons_per_m = flexo_anilox_cost_per_m + flexo_blade_cost_per_m
 
     roto_roller_cost_per_m = (roto_roller_price / roto_roller_life) * job_colors
-    # الروتو به 1 شفرة للوحدة
     roto_blade_cost_per_m = ((1 * roto_blade_length * roto_blade_price) / roto_blade_life) * job_colors
     total_roto_cons_per_m = roto_roller_cost_per_m + roto_blade_cost_per_m
 
     st.markdown("---")
-    st.subheader("📊 تحليل نقطة التعادل (Break-even Analysis)")
-
-    # محاكاة لأحجام طلبيات مختلفة (من 1 طن إلى 50 طن)
-    job_sizes_tons = list(range(1, 51))
-    flexo_cost_per_ton_list = []
-    roto_cost_per_ton_list = []
-
-    for tons in job_sizes_tons:
-        meters_for_this_job = tons * meters_per_ton
-        
-        # الفلكسو: مواد + (تجهيز ثابت ÷ الطن) + (تكلفة المستهلكات للمتر × عدد الأمتار في الطن)
-        f_cost = avg_material_cost_per_ton + (total_flexo_fixed_cost / tons) + (total_flexo_cons_per_m * meters_per_ton)
-        
-        # الروتو: مواد + (تجهيز ثابت ÷ الطن) + (تكلفة المستهلكات للمتر × عدد الأمتار في الطن)
-        r_cost = avg_material_cost_per_ton + (total_roto_fixed_cost / tons) + (total_roto_cons_per_m * meters_per_ton)
-        
-        flexo_cost_per_ton_list.append(f_cost)
-        roto_cost_per_ton_list.append(r_cost)
-
-    df_compare = pd.DataFrame({
-        "حجم الطلبية (طن)": job_sizes_tons,
-        "تكلفة الفلكسو للطن": flexo_cost_per_ton_list,
-        "تكلفة الروتو للطن": roto_cost_per_ton_list
-    })
-
-    fig_comp = go.Figure()
-    fig_comp.add_trace(go.Scatter(
-        x=df_compare["حجم الطلبية (طن)"], 
-        y=df_compare["تكلفة الفلكسو للطن"], 
-        mode='lines', 
-        name='تقنية الفلكسو', 
-        line=dict(color='green', width=3)
-    ))
-    fig_comp.add_trace(go.Scatter(
-        x=df_compare["حجم الطلبية (طن)"], 
-        y=df_compare["تكلفة الروتو للطن"], 
-        mode='lines', 
-        name='تقنية الروتوجرافيور', 
-        line=dict(color='red', width=3)
-    ))
-
-    fig_comp.update_layout(
-        title="تأثير حجم الطلبية على التكلفة الإجمالية (شاملة الأنيلوكس والدكتور بليد)",
-        xaxis_title="حجم الطلبية (طن)",
-        yaxis_title="التكلفة الإجمالية للطن (ريال)",
-        hovermode="x unified"
-    )
-    st.plotly_chart(fig_comp, use_container_width=True)
-
-    st.info("💡 **حاسبة التوفير للعميل:**")
-    selected_job_size = st.slider("اختر حجم طلبية محددة لتراها بالريال (طن)", 1, 50, 5)
-
-    actual_flexo_cost = avg_material_cost_per_ton + (total_flexo_fixed_cost / selected_job_size) + (total_flexo_cons_per_m * meters_per_ton)
-    actual_roto_cost = avg_material_cost_per_ton + (total_roto_fixed_cost / selected_job_size) + (total_roto_cons_per_m * meters_per_ton)
-    savings_per_ton = actual_roto_cost - actual_flexo_cost
-    total_savings = savings_per_ton * selected_job_size
-
-    col_s1, col_s2, col_s3 = st.columns(3)
-    col_s1.metric("تكلفة الطن - روتو", "{:,.0f}".format(actual_roto_cost) + " ريال")
-    col_s2.metric("تكلفة الطن - فلكسو", "{:,.0f}".format(actual_flexo_cost) + " ريال")
-    col_s3.metric("توفير العميل الإجمالي", "{:,.0f}".format(total_savings) + " ريال")
+    st.subheader("📊 تحليل
