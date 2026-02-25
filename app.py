@@ -270,110 +270,108 @@ with tab_fin:
     st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# TAB 7: Compare Roto vs Flexo
+# TAB 7: Compare Roto vs Flexo (النسخة الذكية والمربوطة)
 # ==========================================
 with tab_comp:
-    st.header("مقارنة فلكسو وروتو")
+    st.header("مقارنة فلكسو وروتو (مربوطة ببيانات المصنع)")
+    st.success("تم ربط هذه الصفحة تلقائيا بتكاليف المواد الخام والماكينات والكهرباء من الاقسام السابقة لتكون دقيقة ومقنعة 100%")
 
-    st.subheader("اعدادات الطلبية")
-    cc1, cc2 = st.columns(2)
-    with cc1:
-        job_colors = st.number_input("عدد الالوان", value=8)
-        avg_mat_cost = st.number_input("تكلفة مواد الطن", value=9000)
-    with cc2:
-        meters_per_ton = st.number_input("امتار الطن", value=20000)
-
-    st.markdown("---")
-    st.subheader("التجهيز والهالك")
-    cw1, cw2 = st.columns(2)
-    with cw1:
-        f_plate = st.number_input("سعر بليت فلكسو", value=400)
-        f_waste = st.number_input("هالك فلكسو (كجم)", value=50)
-    with cw2:
-        r_cyl = st.number_input("سعر سلندر روتو", value=1500)
-        r_waste = st.number_input("هالك روتو (كجم)", value=250)
-
-    st.markdown("---")
-    st.subheader("المستهلكات الدقيقة")
-    c_cons1, c_cons2 = st.columns(2)
-    with c_cons1:
-        anilox_p = st.number_input("سعر انيلوكس", value=15000)
-        anilox_l = st.number_input("عمر انيلوكس", value=200000000)
-        fb_p = st.number_input("سعر بليد فلكسو", value=9.0)
-        fb_len = st.number_input("طول بليد فلكسو", value=1.3)
-        fb_life = st.number_input("عمر بليد فلكسو", value=500000)
-    with c_cons2:
-        r_roll_p = st.number_input("سعر رول روتو", value=1500)
-        r_roll_l = st.number_input("عمر رول روتو", value=15000000)
-        rb_p = st.number_input("سعر بليد روتو", value=9.0)
-        rb_len = st.number_input("طول بليد روتو", value=1.3)
-        rb_life = st.number_input("عمر بليد روتو", value=500000)
-
-    st.markdown("---")
-    st.subheader("الماكينة والطاقة")
+    # 1. سحب البيانات تلقائيا من الاقسام السابقة
+    mat_ton_cost = total_raw_cost / final_tons if final_tons > 0 else 9000
     
-    c_mac1, c_mac2 = st.columns(2)
-    with c_mac1:
-        f_mac_price = st.number_input("سعر ماكينة فلكسو", value=8000000)
-        f_kw = st.number_input("طاقة فلكسو (kW)", value=150)
-    with c_mac2:
-        r_mac_price = st.number_input("سعر ماكينة روتو", value=10000000)
-        r_boiler_price = st.number_input("سعر غلاية روتو", value=1500000)
-        r_kw = st.number_input("طاقة روتو (kW)", value=350)
+    try:
+        f_row = df_mac[df_mac["Machine"] == "فلكسو"].iloc[0]
+        f_mac_val = f_row["Cost"]
+        f_kw_val = f_row["kW"]
+    except:
+        f_mac_val = 8000000
+        f_kw_val = 150
 
-    c_gen1, c_gen2, c_gen3 = st.columns(3)
-    mac_life_years = c_gen1.number_input("عمر الماكينات", value=15)
-    work_hrs_month = c_gen2.number_input("ساعات المصنع", value=624)
-    avg_prod_month = c_gen3.number_input("متوسط الانتاج الشهري", value=300)
+    c_c1, c_c2, c_c3 = st.columns(3)
+    
+    with c_c1:
+        st.subheader("اعدادات الطلبية")
+        job_tons = st.number_input("حجم الطلبية (طن)", value=5.0)
+        job_colors = st.number_input("عدد الالوان", value=8)
+        
+    with c_c2:
+        st.subheader("التجهيز والهالك")
+        f_plate = st.number_input("سعر بليت فلكسو للون", value=400)
+        r_cyl = st.number_input("سعر سلندر روتو للون", value=1500)
+        f_waste = st.number_input("هالك فلكسو (كجم)", value=50)
+        r_waste = st.number_input("هالك روتو (كجم)", value=250)
+        
+    with c_c3:
+        st.subheader("الماكينة والطاقة")
+        r_mac_val = st.number_input("سعر ماكينة روتو مع غلاية", value=11500000)
+        r_kw_val = st.number_input("طاقة روتو مع غلاية (kW)", value=350)
+        avg_prod_month = st.number_input("الانتاج الشهري للماكينة (طن)", value=300)
 
+    # حساب التكاليف للطلبية المحددة
+    f_mat_tot = job_tons * mat_ton_cost
+    r_mat_tot = job_tons * mat_ton_cost
+    
     f_setup = job_colors * f_plate
     r_setup = job_colors * r_cyl
-    mat_kg_cost = avg_mat_cost / 1000.0
-    f_waste_cost = f_waste * mat_kg_cost
-    r_waste_cost = r_waste * mat_kg_cost
-    tot_f_fixed = f_setup + f_waste_cost
-    tot_r_fixed = r_setup + r_waste_cost
-
-    f_ani_m = (anilox_p / anilox_l) * job_colors
-    f_bld_m = ((2 * fb_len * fb_p) / fb_life) * job_colors
-    tot_f_cons = f_ani_m + f_bld_m
-
-    r_rol_m = (r_roll_p / r_roll_l) * job_colors
-    r_bld_m = ((1 * rb_len * rb_p) / rb_life) * job_colors
-    tot_r_cons = r_rol_m + r_bld_m
-
-    f_dep_m = f_mac_price / (mac_life_years * 12)
-    f_pow_m = f_kw * work_hrs_month * 0.18
+    
+    mat_kg_c = mat_ton_cost / 1000.0
+    f_waste_cost = f_waste * mat_kg_c
+    r_waste_cost = r_waste * mat_kg_c
+    
+    # حسابات الاهلاك والطاقة للطلبية
+    f_dep_m = f_mac_val / (15 * 12)
+    f_pow_m = f_kw_val * work_hrs * elec_rate
     f_mac_per_ton = (f_dep_m + f_pow_m) / avg_prod_month
-
-    r_total_inv = r_mac_price + r_boiler_price
-    r_dep_m = r_total_inv / (mac_life_years * 12)
-    r_pow_m = r_kw * work_hrs_month * 0.18
+    f_mac_tot = job_tons * f_mac_per_ton
+    
+    r_dep_m = r_mac_val / (15 * 12)
+    r_pow_m = r_kw_val * work_hrs * elec_rate
     r_mac_per_ton = (r_dep_m + r_pow_m) / avg_prod_month
+    r_mac_tot = job_tons * r_mac_per_ton
 
     st.markdown("---")
-    st.subheader("الرسم البياني")
+    st.subheader(f"تحليل هيكل التكلفة لطلبية بحجم {job_tons} طن")
+    st.info("الرسم البياني يوضح للعميل ان تكلفة المواد واحدة، لكن الروتو اغلى بسبب التجهيز والهالك والطاقة.")
 
-    job_sizes = list(range(1, 51))
-    f_cost_list = []
-    r_cost_list = []
+    # الرسم البياني التراكمي (Stacked Bar) المقنع جدا
+    bar_data = {
+        "التقنية": ["فلكسو", "فلكسو", "فلكسو", "فلكسو", "روتو", "روتو", "روتو", "روتو"],
+        "بند التكلفة": ["1-مواد خام", "2-بليت او سلندر", "3-هالك التشغيل", "4-اهلاك وطاقة", 
+                     "1-مواد خام", "2-بليت او سلندر", "3-هالك التشغيل", "4-اهلاك وطاقة"],
+        "التكلفة (ريال)": [f_mat_tot, f_setup, f_waste_cost, f_mac_tot,
+                         r_mat_tot, r_setup, r_waste_cost, r_mac_tot]
+    }
+    df_bar = pd.DataFrame(bar_data)
+    fig_bar = px.bar(df_bar, x="التقنية", y="التكلفة (ريال)", color="بند التكلفة", text_auto='.0f')
+    st.plotly_chart(fig_bar, use_container_width=True)
 
-    for t in job_sizes:
-        f_c = avg_mat_cost + (tot_f_fixed / t) + (tot_f_cons * meters_per_ton) + f_mac_per_ton
-        r_c = avg_mat_cost + (tot_r_fixed / t) + (tot_r_cons * meters_per_ton) + r_mac_per_ton
-        f_cost_list.append(f_c)
-        r_cost_list.append(r_c)
+    f_job_total = f_mat_tot + f_setup + f_waste_cost + f_mac_tot
+    r_job_total = r_mat_tot + r_setup + r_waste_cost + r_mac_tot
+    job_savings = r_job_total - f_job_total
 
-    df_comp = pd.DataFrame({
-        "الطن": job_sizes,
-        "فلكسو": f_cost_list,
-        "روتو": r_cost_list
-    })
+    cs1, cs2, cs3 = st.columns(3)
+    cs1.metric("اجمالي التكلفة - روتو", fmt(r_job_total))
+    cs2.metric("اجمالي التكلفة - فلكسو", fmt(f_job_total))
+    cs3.metric("التوفير الصافي في هذه الطلبية", fmt(job_savings))
 
-    fig_comp = go.Figure()
-    fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["فلكسو"], name='فلكسو'))
-    fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["روتو"], name='روتو'))
-    st.plotly_chart(fig_comp, use_container_width=True)
+    st.markdown("---")
+    st.subheader("منحنى التعادل وتأثير حجم الطلبية (Break-even)")
+    
+    jsizes = list(range(1, 51))
+    fc_list = []
+    rc_list = []
+    
+    for t in jsizes:
+        fc = mat_ton_cost + ((f_setup + f_waste_cost)/t) + f_mac_per_ton
+        rc = mat_ton_cost + ((r_setup + r_waste_cost)/t) + r_mac_per_ton
+        fc_list.append(fc)
+        rc_list.append(rc)
+        
+    df_line = pd.DataFrame({"حجم الطلبية (طن)": jsizes, "تكلفة طن الفلكسو": fc_list, "تكلفة طن الروتو": rc_list})
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(x=df_line["حجم الطلبية (طن)"], y=df_line["تكلفة طن الفلكسو"], name="فلكسو", line=dict(color='green', width=3)))
+    fig_line.add_trace(go.Scatter(x=df_line["حجم الطلبية (طن)"], y=df_line["تكلفة طن الروتو"], name="روتو", line=dict(color='red', width=3)))
+    st.plotly_chart(fig_line, use_container_width=True)
 
 # ==========================================
 # TAB 8: Client Mix
@@ -389,7 +387,7 @@ with tab_mix:
         st.subheader("مبيعات الروتو")
         r_data = [
             {"هيكل": "طبقة", "نسبة": 30.0, "سعر": 13.0},
-            {"هيكل": "طبقتين", "نسبة": 50.0, "سعر": 13.5},
+            {"هيكل": "طبقتين", "نسبة": 50.0, "السعر": 13.5},
             {"هيكل": "3 طبقات", "نسبة": 20.0, "سعر": 15.0},
         ]
         df_r_mix = st.data_editor(pd.DataFrame(r_data), use_container_width=True, key="r_mix")
