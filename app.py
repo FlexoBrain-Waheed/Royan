@@ -17,10 +17,10 @@ st.markdown("---")
 t1 = "1. المواد الخام"
 t2 = "2. الطباعة"
 t3 = "3. اللامنيشن"
-t4 = "4. الأصول"
+t4 = "4. الاصول"
 t5 = "5. الموارد البشرية"
 t6 = "6. المالية"
-t7 = "7. مقارنة التقنيات"
+t7 = "7. مقارنة التقنيات الشاملة"
 t8 = "8. تحليل العميل"
 
 tabs = st.tabs([t1, t2, t3, t4, t5, t6, t7, t8])
@@ -270,108 +270,136 @@ with tab_fin:
     st.plotly_chart(fig, use_container_width=True)
 
 # ==========================================
-# TAB 7: Compare Roto vs Flexo (النسخة الذكية والمربوطة)
+# TAB 7: Compare Roto vs Flexo (الشاملة)
 # ==========================================
 with tab_comp:
-    st.header("مقارنة فلكسو وروتو (مربوطة ببيانات المصنع)")
-    st.success("تم ربط هذه الصفحة تلقائيا بتكاليف المواد الخام والماكينات والكهرباء من الاقسام السابقة لتكون دقيقة ومقنعة 100%")
+    st.header("دراسة الجدوى الفنية والمالية: فلكسو ضد روتوجرافيور")
+    st.info("تم تقسيم المقارنة الى 3 محاور لاثبات التفوق المالي والتشغيلي لتقنية الفلكسو")
 
-    # 1. سحب البيانات تلقائيا من الاقسام السابقة
-    mat_ton_cost = total_raw_cost / final_tons if final_tons > 0 else 9000
-    
-    try:
-        f_row = df_mac[df_mac["Machine"] == "فلكسو"].iloc[0]
-        f_mac_val = f_row["Cost"]
-        f_kw_val = f_row["kW"]
-    except:
-        f_mac_val = 8000000
-        f_kw_val = 150
+    sub_tabs = st.tabs(["1. المقارنة المالية", "2. الكفاءة التشغيلية والوقت", "3. العائد الاستراتيجي والتخزين"])
 
-    c_c1, c_c2, c_c3 = st.columns(3)
-    
-    with c_c1:
-        st.subheader("اعدادات الطلبية")
-        job_tons = st.number_input("حجم الطلبية (طن)", value=5.0)
-        job_colors = st.number_input("عدد الالوان", value=8)
+    # --- المحور الاول: المالية ---
+    with sub_tabs[0]:
+        st.subheader("تحليل التكاليف للطلبية الواحدة")
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            job_colors = st.number_input("عدد الالوان للطلبية", value=8)
+            avg_mat_cost = st.number_input("تكلفة مواد الطن (متوسط)", value=9000)
+            meters_per_ton = st.number_input("امتار الطن الواحد", value=20000)
+        with cc2:
+            f_plate = st.number_input("سعر بليت فلكسو", value=400)
+            r_cyl = st.number_input("سعر سلندر روتو", value=1500)
+            f_waste = st.number_input("هالك التجهيز فلكسو (كجم)", value=50)
+            r_waste = st.number_input("هالك التجهيز روتو (كجم)", value=250)
+
+        st.markdown("---")
+        st.subheader("المستهلكات والماكينات")
+        c_mac1, c_mac2 = st.columns(2)
+        with c_mac1:
+            f_mac_price = st.number_input("سعر ماكينة فلكسو", value=8000000)
+            f_kw = st.number_input("طاقة فلكسو (kW)", value=150)
+            anilox_p = st.number_input("سعر انيلوكس", value=15000)
+        with c_mac2:
+            r_mac_price = st.number_input("سعر ماكينة روتو + غلاية", value=11500000)
+            r_kw = st.number_input("طاقة روتو (kW)", value=350)
+            r_roll_p = st.number_input("سعر رول روتو", value=1500)
+
+        # حسابات
+        f_setup = job_colors * f_plate
+        r_setup = job_colors * r_cyl
+        mat_kg_cost = avg_mat_cost / 1000.0
+        f_waste_cost = f_waste * mat_kg_cost
+        r_waste_cost = r_waste * mat_kg_cost
+        tot_f_fixed = f_setup + f_waste_cost
+        tot_r_fixed = r_setup + r_waste_cost
+
+        f_ani_m = (anilox_p / 200000000) * job_colors
+        r_rol_m = (r_roll_p / 15000000) * job_colors
+
+        f_dep_m = f_mac_price / (15 * 12)
+        f_pow_m = f_kw * 624 * 0.18
+        f_mac_per_ton = (f_dep_m + f_pow_m) / 300
+
+        r_dep_m = r_mac_price / (15 * 12)
+        r_pow_m = r_kw * 624 * 0.18
+        r_mac_per_ton = (r_dep_m + r_pow_m) / 300
+
+        st.markdown("---")
+        st.subheader("الرسم البياني (نقطة التعادل)")
+        job_sizes = list(range(1, 51))
+        f_cost_list = []
+        r_cost_list = []
+
+        for t in job_sizes:
+            f_c = avg_mat_cost + (tot_f_fixed / t) + (f_ani_m * meters_per_ton) + f_mac_per_ton
+            r_c = avg_mat_cost + (tot_r_fixed / t) + (r_rol_m * meters_per_ton) + r_mac_per_ton
+            f_cost_list.append(f_c)
+            r_cost_list.append(r_c)
+
+        df_comp = pd.DataFrame({"الطن": job_sizes, "فلكسو": f_cost_list, "روتو": r_cost_list})
+        fig_comp = go.Figure()
+        fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["فلكسو"], name="فلكسو", line=dict(color='green', width=3)))
+        fig_comp.add_trace(go.Scatter(x=df_comp["الطن"], y=df_comp["روتو"], name="روتو", line=dict(color='red', width=3)))
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+    # --- المحور الثاني: التشغيل ---
+    with sub_tabs[1]:
+        st.subheader("تكلفة الوقت الضائع (Opportunity Cost)")
+        st.info("الروتو يهدر ساعات طويلة في تجهيز السلندرات وغسيل الاحواض، هذا الوقت المهدر يمكن تحويله لانتاج وربح في الفلكسو")
         
-    with c_c2:
-        st.subheader("التجهيز والهالك")
-        f_plate = st.number_input("سعر بليت فلكسو للون", value=400)
-        r_cyl = st.number_input("سعر سلندر روتو للون", value=1500)
-        f_waste = st.number_input("هالك فلكسو (كجم)", value=50)
-        r_waste = st.number_input("هالك روتو (كجم)", value=250)
+        co1, co2 = st.columns(2)
+        with co1:
+            r_setup_min = st.number_input("وقت تجهيز الروتو (دقيقة)", value=150)
+            f_setup_min = st.number_input("وقت تجهيز الفلكسو (دقيقة)", value=45)
+        with co2:
+            monthly_jobs = st.number_input("متوسط تغيير الطلبيات شهريا", value=60)
+            profit_per_hour = st.number_input("ربح تشغيل الماكينة في الساعة (ريال)", value=1500)
+
+        r_lost_hrs = (r_setup_min * monthly_jobs) / 60.0
+        f_lost_hrs = (f_setup_min * monthly_jobs) / 60.0
+        saved_hrs = r_lost_hrs - f_lost_hrs
+        extra_profit = saved_hrs * profit_per_hour
+
+        c_op1, c_op2, c_op3 = st.columns(3)
+        c_op1.metric("ساعات مهدرة - روتو", fmt1(r_lost_hrs) + " ساعة")
+        c_op2.metric("ساعات مهدرة - فلكسو", fmt1(f_lost_hrs) + " ساعة")
+        c_op3.metric("الربح الاضافي بسبب توفير الوقت", fmt(extra_profit) + " ريال/شهر")
+
+        st.markdown("---")
+        st.subheader("استهلاك المذيبات (Solvent Evaporation)")
+        st.write("الروتو يعتمد على احواض مكشوفة مما يزيد التبخر. الفلكسو يستخدم نظام الشمبر المغلق")
+        st.write("النتيجة: توفير هائل في ميزانية السولفنت السنوية")
+
+    # --- المحور الثالث: الاستراتيجي ---
+    with sub_tabs[2]:
+        st.subheader("تكلفة مساحات التخزين (Warehousing)")
+        st.info("السلندرات المعدنية ثقيلة وتحتاج مساحات ضخمة. السليفات خفيفة وتخزن بسهولة")
         
-    with c_c3:
-        st.subheader("الماكينة والطاقة")
-        r_mac_val = st.number_input("سعر ماكينة روتو مع غلاية", value=11500000)
-        r_kw_val = st.number_input("طاقة روتو مع غلاية (kW)", value=350)
-        avg_prod_month = st.number_input("الانتاج الشهري للماكينة (طن)", value=300)
-
-    # حساب التكاليف للطلبية المحددة
-    f_mat_tot = job_tons * mat_ton_cost
-    r_mat_tot = job_tons * mat_ton_cost
-    
-    f_setup = job_colors * f_plate
-    r_setup = job_colors * r_cyl
-    
-    mat_kg_c = mat_ton_cost / 1000.0
-    f_waste_cost = f_waste * mat_kg_c
-    r_waste_cost = r_waste * mat_kg_c
-    
-    # حسابات الاهلاك والطاقة للطلبية
-    f_dep_m = f_mac_val / (15 * 12)
-    f_pow_m = f_kw_val * work_hrs * elec_rate
-    f_mac_per_ton = (f_dep_m + f_pow_m) / avg_prod_month
-    f_mac_tot = job_tons * f_mac_per_ton
-    
-    r_dep_m = r_mac_val / (15 * 12)
-    r_pow_m = r_kw_val * work_hrs * elec_rate
-    r_mac_per_ton = (r_dep_m + r_pow_m) / avg_prod_month
-    r_mac_tot = job_tons * r_mac_per_ton
-
-    st.markdown("---")
-    st.subheader(f"تحليل هيكل التكلفة لطلبية بحجم {job_tons} طن")
-    st.info("الرسم البياني يوضح للعميل ان تكلفة المواد واحدة، لكن الروتو اغلى بسبب التجهيز والهالك والطاقة.")
-
-    # الرسم البياني التراكمي (Stacked Bar) المقنع جدا
-    bar_data = {
-        "التقنية": ["فلكسو", "فلكسو", "فلكسو", "فلكسو", "روتو", "روتو", "روتو", "روتو"],
-        "بند التكلفة": ["1-مواد خام", "2-بليت او سلندر", "3-هالك التشغيل", "4-اهلاك وطاقة", 
-                     "1-مواد خام", "2-بليت او سلندر", "3-هالك التشغيل", "4-اهلاك وطاقة"],
-        "التكلفة (ريال)": [f_mat_tot, f_setup, f_waste_cost, f_mac_tot,
-                         r_mat_tot, r_setup, r_waste_cost, r_mac_tot]
-    }
-    df_bar = pd.DataFrame(bar_data)
-    fig_bar = px.bar(df_bar, x="التقنية", y="التكلفة (ريال)", color="بند التكلفة", text_auto='.0f')
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    f_job_total = f_mat_tot + f_setup + f_waste_cost + f_mac_tot
-    r_job_total = r_mat_tot + r_setup + r_waste_cost + r_mac_tot
-    job_savings = r_job_total - f_job_total
-
-    cs1, cs2, cs3 = st.columns(3)
-    cs1.metric("اجمالي التكلفة - روتو", fmt(r_job_total))
-    cs2.metric("اجمالي التكلفة - فلكسو", fmt(f_job_total))
-    cs3.metric("التوفير الصافي في هذه الطلبية", fmt(job_savings))
-
-    st.markdown("---")
-    st.subheader("منحنى التعادل وتأثير حجم الطلبية (Break-even)")
-    
-    jsizes = list(range(1, 51))
-    fc_list = []
-    rc_list = []
-    
-    for t in jsizes:
-        fc = mat_ton_cost + ((f_setup + f_waste_cost)/t) + f_mac_per_ton
-        rc = mat_ton_cost + ((r_setup + r_waste_cost)/t) + r_mac_per_ton
-        fc_list.append(fc)
-        rc_list.append(rc)
+        cs1, cs2 = st.columns(2)
+        with cs1:
+            total_designs = st.number_input("عدد التصاميم المتوقعة", value=500)
+            colors_per_d = st.number_input("الوان كل تصميم", value=8)
+        with cs2:
+            rent_sqm = st.number_input("تكلفة ايجار المتر المربع سنويا", value=300)
+            
+        total_units = total_designs * colors_per_d
         
-    df_line = pd.DataFrame({"حجم الطلبية (طن)": jsizes, "تكلفة طن الفلكسو": fc_list, "تكلفة طن الروتو": rc_list})
-    fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(x=df_line["حجم الطلبية (طن)"], y=df_line["تكلفة طن الفلكسو"], name="فلكسو", line=dict(color='green', width=3)))
-    fig_line.add_trace(go.Scatter(x=df_line["حجم الطلبية (طن)"], y=df_line["تكلفة طن الروتو"], name="روتو", line=dict(color='red', width=3)))
-    st.plotly_chart(fig_line, use_container_width=True)
+        # كل 100 وحدة تحتاج مساحة
+        r_sqm_needed = (total_units / 100) * 5 
+        f_sqm_needed = (total_units / 100) * 1 
+        
+        r_rent_cost = r_sqm_needed * rent_sqm
+        f_rent_cost = f_sqm_needed * rent_sqm
+
+        st.write("اجمالي عدد السلندرات/السليفات المطلوبة: " + fmt(total_units) + " وحدة")
+        
+        cr1, cr2 = st.columns(2)
+        cr1.metric("تكلفة التخزين السنوية - روتو", fmt(r_rent_cost) + " ريال")
+        cr2.metric("تكلفة التخزين السنوية - فلكسو", fmt(f_rent_cost) + " ريال")
+        
+        st.markdown("---")
+        st.subheader("الاستدامة وطباعة PE")
+        st.write("السوق يتجه لمواد PE القابلة للتدوير. الروتو يواجه صعوبة في شدها، بينما الفلكسو مصمم لها بفضل الاسطوانة المركزية.")
 
 # ==========================================
 # TAB 8: Client Mix
@@ -387,7 +415,7 @@ with tab_mix:
         st.subheader("مبيعات الروتو")
         r_data = [
             {"هيكل": "طبقة", "نسبة": 30.0, "سعر": 13.0},
-            {"هيكل": "طبقتين", "نسبة": 50.0, "السعر": 13.5},
+            {"هيكل": "طبقتين", "نسبة": 50.0, "سعر": 13.5},
             {"هيكل": "3 طبقات", "نسبة": 20.0, "سعر": 15.0},
         ]
         df_r_mix = st.data_editor(pd.DataFrame(r_data), use_container_width=True, key="r_mix")
